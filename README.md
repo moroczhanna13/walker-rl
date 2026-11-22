@@ -114,8 +114,35 @@ Both groups: PPO + normalization, 4 envs, 2M steps. The push-trained policies
 saw 150 N pushes on average every 50 steps during training.
 
 **What I learned**
-- Training with pushes don't make the robot more robust, it actually made it worse
+- Training with pushes didn't make the robot more robust, it actually made it worse
 - Training with different seeds is important, in a lot of cases one seed underperforms
-- Maybe if I experiment with more seeds and different parameters, I can make improve the robustness
+- Maybe if I experiment with more seeds and different parameters, I can improve the robustness
 
 Limitations: only one disturbance type was tested, and only 2 control seeds.
+
+## Robustness to changed physics (domain randomization)
+
+How sensitive is the policy to torso mass, ground friction and motor strength?
+Falls out of 20 episodes:
+
+| Test condition | Control | Domain randomization ±15% | Push-trained |
+| --- | --- | --- | --- |
+| Nominal | 0 | 0 | 0 |
+| Friction × 0.85 | 0 | 5 | 0 |
+| Friction × 0.7 | 0 | 20 | 2 |
+| Torso mass × 1.25 | 1 | 5 | 20 |
+| Motor strength × 0.9 | 3| 3 | 20 |
+| Motor strength × 1.1 | 1 | 2 | 1 |
+
+All policies: PPO + normalization, 4 envs, 2M steps, seed=0. Domain randomization
+resamples torso mass, friction and motor gear uniformly within ±15% every episode.
+
+![control, dr and push learning curves](plots/dr_comparison.png)
+
+Best-model return over 20 evaluation episodes
+
+**What I learned**
+- Training with domain randomization didn't improve robustness.
+- I trained a model with the combination of domain randomization and pushes: it didn't even learn to walk (maybe the 2M steps were not enough and I only experimented with one seed)
+
+Limitations: one seed and three randomized parameters only, simulation only.

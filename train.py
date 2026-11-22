@@ -5,7 +5,7 @@ from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
-from wrappers import PushWrapper
+from wrappers import PushWrapper, PhysicsWrapper
 
 # Az RL Baselines3 Zoo hangolt PPO-beállításai a Walker2d-hez
 ZOO_PARAMS = dict(
@@ -47,12 +47,22 @@ parser.add_argument("--algo", default="ppo", choices=["ppo", "sac"], help="melyi
 parser.add_argument("--eval-freq", type=int, default=50_000, help="hány lépésenként legyen kiértékelés")
 parser.add_argument("--push", type=float, default=0, help="tanítás közbeni lökések ereje newtonban (0 = nincs)")
 parser.add_argument("--push-interval", type=int, default=200, help="átlagosan hány lépésenként jöjjön lökés")
+parser.add_argument("--randomize", type=float, default=0, help="véletlen fizika: 0.3 = tömeg, súrlódás, motorerő +/- 30%% epizódonként")
 args = parser.parse_args()
 
 # Tanító környezet: n_envs darab párhuzamos példány
-# Ha kértünk lökéseket, minden tanító környezet PushWrapperbe kerül
-push = dict(wrapper_class=PushWrapper, wrapper_kwargs=dict(force=args.push, interval=args.push_interval)) if args.push > 0 else {}
-env = make_vec_env(args.env, n_envs=args.n_envs, seed=args.seed, **push)
+
+#tanító környezet becsomagolása: lökések és/vagy véletlen fizika, ha kértük
+def add_disturbances(env):
+    if args.push > 0:
+        env = PushWrapper(env, force=args.push, interval=args.push_interval)
+    if args.randomize > 0:
+        env = PhysicsWrapper(env, randomize=args.randomize)
+    return env
+
+
+# Tanító környezet: n_envs darab párhuzamos példány, mindegyik becsomagolva
+env = make_vec_env(args.env, n_envs=args.n_envs, seed=args.seed, wrapper_class=add_disturbances)
 # Külön kiértékelő környezet: ezen mérjük tanítás közben a modellt
 eval_env = make_vec_env(args.env, n_envs=1, seed=args.seed + 1000)
 

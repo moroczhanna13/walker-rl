@@ -44,3 +44,39 @@ class PushWrapper(gym.Wrapper):
         info["pushing"] = pushing
         info["push_count"] = self.push_count
         return obs, reward, terminated, truncated, info
+
+class PhysicsWrapper(gym.Wrapper):
+    """Megváltoztatja a robot fizikáját. Minden érték szorzó: 1.0 = eredeti.
+
+    mass:      a törzs tömege (2.0 = kétszer olyan nehéz törzs)
+    friction:  a talaj és a lábak súrlódása (0.3 = csúszós, jeges)
+    motor:     a motorok ereje (0.7 = 30%-kal gyengébb motorok)
+    randomize: ha nagyobb 0-nál, minden epizód elején mindhárom szorzót
+               véletlenül húzza az [1 - randomize, 1 + randomize] tartományból
+    """
+
+    def __init__(self, env, mass=1.0, friction=1.0, motor=1.0, randomize=0.0):
+        super().__init__(env)
+        self.scales = dict(mass=mass, friction=friction, motor=motor)
+        self.randomize = randomize
+        model = env.unwrapped.model
+        self.torso_id = model.body("torso").id
+        # Az eredeti értékeket elmentjük, mindig ezekből számolunk
+        self.nominal_mass = model.body_mass.copy()
+        self.nominal_inertia = model.body_inertia.copy()
+        self.nominal_friction = model.geom_friction.copy()
+        self.nominal_gear = model.actuator_gear.copy()
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        if self.randomize > 0:
+            low, high = 1 - self.randomize, 1 + self.randomize
+            self.scales = {name: self.np_random.uniform(low, high) for name in self.scales}
+
+        model = self.unwrapped.model
+        model.body_mass[self.torso_id] = self.nominal_mass[self.torso_id] * self.scales["mass"]
+        model.body_inertia[self.torso_id] = self.nominal_inertia[self.torso_id] * self.scales["mass"]
+        model.geom_friction[:, 0] = self.nominal_friction[:, 0] * self.scales["friction"]
+        model.actuator_gear[:, 0] = self.nominal_gear[:, 0] * self.scales["motor"]
+        info["physics"] = dict(self.scales)
+        return obs, info
