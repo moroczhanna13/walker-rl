@@ -2,8 +2,6 @@
 
 Teaching a 2D biped (MuJoCo Walker2d) to walk with reinforcement learning.
 
-**Status:** work in progress (step 6 of 8)
-
 ## Before and after
 
 | Random policy | PPO, 1M steps | PPO, normalization |
@@ -18,32 +16,30 @@ Third: using PPO and observation/reward normalization, it moves at 4.1 m/s, and 
 
 Training with SAC (seed 0), it moves at 2,7 m/s.
 
-## Setup
-
-    python -m venv .venv
-    pip install -r requirements.txt
 
 ## How to run
 
-Train with PPO + normalization, with seed 0:
+Tested with Python 3.13 on Windows.
 
-    python train.py --normalize --seed 0 --name ppo_s0
+    git clone https://github.com/moroczhanna13/walker-rl.git
+    cd walker-rl
+    python -m venv .venv
+    .venv\Scripts\activate
+    pip install -r requirements.txt
 
-Train with SAC, 300k steps, with seed 0:
+Evaluate and record a saved model:
 
-    python train.py --algo sac --timesteps 300000 --eval-freq 20000 --seed 0 --name sac_s0
+    python evaluate.py --model models/pushB150_best/best_model --episodes 20
+    python record_gif.py --model models/pushB150_best/best_model --camera track --out videos/demo.gif
 
-Get a graph with the results:
+Test robustness:
 
-    python plot_results.py
+    python robustness_test.py --model models/pushB150_best/best_model --forces 0 100 150 200 --interval 50
+    python physics_test.py --model models/dr15_s1_best/best_model --param friction --values 0.5 0.7 1.0 1.5
 
-Test the robustness of a model:
+Train from scratch (about 27 minutes on 4 CPU cores):
 
-    robustness_test.py
-
-Train with 150N pushes, 4 environment, 2M steps:
-
-    python train.py --normalize --n-envs 4 --timesteps 2000000 --push 150 --push-interval 50 --seed 1 --name pushB150_s1
+    python train.py --normalize --n-envs 4 --timesteps 2000000 --push 150 --push-interval 50 --name my_push_run
 
 ## Roadmap
 
@@ -52,7 +48,8 @@ Train with 150N pushes, 4 environment, 2M steps:
 - [x] Tuned PPO
 - [x] PPO vs SAC
 - [x] Push robustness
-- [ ] Domain randomization
+- [x] Domain randomization
+
 
 ## Results
 
@@ -146,3 +143,16 @@ Best-model return over 20 evaluation episodes
 - I trained a model with the combination of domain randomization and pushes: it didn't even learn to walk (maybe the 2M steps were not enough and I only experimented with one seed)
 
 Limitations: one seed and three randomized parameters only, simulation only.
+
+## What I learned
+
+- A single training run tells you very little, you have to run several seeds, paralel environments and a
+  control group before believing a result.
+- A high return does not mean a robust policy: a highest-scoring policy can be the most fragile one.
+- Most of my time went into measuring and evaluating, not into training.
+
+## Next steps
+
+- Curriculum: start with weak pushes and increase the force during training.
+- Combine pushes and domain randomization with a longer training budget.
+- Move to GPU-based simulation (MuJoCo Playground) and a 3D robot.
